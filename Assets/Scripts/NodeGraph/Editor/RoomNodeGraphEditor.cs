@@ -22,10 +22,10 @@ public class RoomNodeGraphEditor : EditorWindow
 
     private void OnEnable()
     {
-        // Define node layout style
+        // Define node layout style (background img, text color, padding, border)
         roomNodeStyle = new GUIStyle();
         roomNodeStyle.normal.background = EditorGUIUtility.Load("Assets/Editor/SquareNodeTexture.png") as Texture2D;
-        roomNodeStyle.normal.textColor = Color.red;
+        roomNodeStyle.normal.textColor = Color.yellow;
         roomNodeStyle.padding = new RectOffset(nodePadding, nodePadding, nodePadding, nodePadding);
         roomNodeStyle.border = new RectOffset(nodeBorder, nodeBorder, nodeBorder, nodeBorder);
     }
