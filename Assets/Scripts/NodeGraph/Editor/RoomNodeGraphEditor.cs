@@ -1,12 +1,13 @@
 using UnityEngine;
 using UnityEditor.Callbacks;
 using UnityEditor;
-
+using System;
 
 public class RoomNodeGraphEditor : EditorWindow
 {
     private GUIStyle roomNodeStyle;
     private static RoomNodeGraphSO currentRoomNodeGraph;
+    private RoomNodeSO currentRoomNode = null;
     private RoomNodeTypeListSO roomNodeTypeList;
 
     // Node layout values
@@ -70,7 +71,38 @@ public class RoomNodeGraphEditor : EditorWindow
 
     private void ProcessEvents(Event currentEvent)
     {
-        ProcessRoomNodeGraphEvents(currentEvent);
+        // Get room node that mause is over if it's null or noty currently being dragged
+        if (currentRoomNode == null || currentRoomNode.isLeftClickDragging == false)
+        {
+            // Moving to fuction that will tell if mouse is over node
+            currentRoomNode = IsMouseOverRoomNode(currentEvent);
+        }
+
+        // if mouse isn't over a room node
+        if (currentRoomNode == null)
+        {
+            ProcessRoomNodeGraphEvents(currentEvent);
+        }
+
+        // else process room node event
+        else
+        {
+            currentRoomNode.ProcessEvents(currentEvent);
+        }
+        
+    }
+
+    // Function checking if mause is over room node, if yes return this node if not return null
+    private RoomNodeSO IsMouseOverRoomNode(Event currentEvent)
+    {
+        for (int i = currentRoomNodeGraph.roomNodeList.Count - 1; i >= 0; i--)
+        {
+            if (currentRoomNodeGraph.roomNodeList[i].rect.Contains(currentEvent.mousePosition))
+            {
+                return currentRoomNodeGraph.roomNodeList[i];
+            }
+        }
+        return null;
     }
 
     //Process Room Node Graph
@@ -96,6 +128,7 @@ public class RoomNodeGraphEditor : EditorWindow
         {
             ShowContextMenu(currentEvent.mousePosition);
         }
+
     }
 
     // Show the context menu
@@ -135,7 +168,6 @@ public class RoomNodeGraphEditor : EditorWindow
     }
 
     // Draw room nodes in the graph window
-
     private void DrawRoomNodes()
     {
         // Loop throught all room nodes and draw them
