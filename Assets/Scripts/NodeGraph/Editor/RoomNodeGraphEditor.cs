@@ -16,6 +16,10 @@ public class RoomNodeGraphEditor : EditorWindow
     private const int nodePadding = 25;
     private const int nodeBorder = 25;
 
+    // Connecting line values of the child parent nodes
+    private const float connectingLineWidth = 3f;
+    private const float connectingLineArrowSize = 6f;
+
     [MenuItem("Room Node Graph Editor", menuItem ="Window/Dungeon Editor/Room Node Graph Editor")]
     private static void OpenWindow()
     {
@@ -58,8 +62,14 @@ public class RoomNodeGraphEditor : EditorWindow
         // If a scriptable object of type RoomNodeGraphSO has been selected then process
         if (currentRoomNodeGraph != null)
         {
+            // Draw line if being dragged
+            DrawDraggedLine();
+
             // Process Events
             ProcessEvents(Event.current);
+
+            // Draw Connections Between Room Nodes
+            DrawRoomConnections();
 
             // Draw Room Nodes
             DrawRoomNodes();
@@ -69,17 +79,27 @@ public class RoomNodeGraphEditor : EditorWindow
             Repaint();
     }
 
+    
+    private void DrawDraggedLine()
+    {
+        if (currentRoomNodeGraph.linePosition != Vector2.zero)
+        {
+            //Draw line from node to line position
+            Handles.DrawBezier(currentRoomNodeGraph.roomNodeToDrawLineFrom.rect.center, currentRoomNodeGraph.linePosition, currentRoomNodeGraph.roomNodeToDrawLineFrom.rect.center, currentRoomNodeGraph.linePosition, Color.red, null, connectingLineWidth);
+        }
+    }
+
     private void ProcessEvents(Event currentEvent)
     {
-        // Get room node that mause is over if it's null or noty currently being dragged
+        // Get room node that mouse is over if it's null or noty currently being dragged
         if (currentRoomNode == null || currentRoomNode.isLeftClickDragging == false)
         {
             // Moving to fuction that will tell if mouse is over node
             currentRoomNode = IsMouseOverRoomNode(currentEvent);
         }
 
-        // if mouse isn't over a room node
-        if (currentRoomNode == null)
+        // if mouse isn't over a room node or we are currently dragging a line from the room node then process graph events
+        if (currentRoomNode == null || currentRoomNodeGraph.roomNodeToDrawLineFrom != null)
         {
             ProcessRoomNodeGraphEvents(currentEvent);
         }
@@ -92,7 +112,7 @@ public class RoomNodeGraphEditor : EditorWindow
         
     }
 
-    // Function checking if mause is over room node, if yes return this node if not return null
+    // Function checking if mouse is over room node, if yes return this node if not return null
     private RoomNodeSO IsMouseOverRoomNode(Event currentEvent)
     {
         for (int i = currentRoomNodeGraph.roomNodeList.Count - 1; i >= 0; i--)
@@ -110,9 +130,19 @@ public class RoomNodeGraphEditor : EditorWindow
     {
         switch (currentEvent.type)
         {
-            // Process Mouse Down Events
+            // Process Mouse Button Down Events
             case EventType.MouseDown:
                 ProcessMouseDownEvent(currentEvent);
+                break;
+
+            // Prcoess Mouse Button Up Event
+            case EventType.MouseUp:
+                ProcessMouseUpEvent(currentEvent);
+                break;
+
+            // Process Mouse Drag Events
+            case EventType.MouseDrag:
+                ProcessMouseDragEvent(currentEvent);
                 break;
 
             default:
@@ -129,6 +159,53 @@ public class RoomNodeGraphEditor : EditorWindow
             ShowContextMenu(currentEvent.mousePosition);
         }
 
+    }
+
+    // Process mouse button up event. Only if dragging line and holding right button.
+    private void ProcessMouseUpEvent(Event currentEvent)
+    {
+        if (currentEvent.button == 1 && currentRoomNodeGraph.roomNodeToDrawLineFrom != null)
+        {
+            // Check if is over another room node
+            RoomNodeSO roomNode = IsMouseOverRoomNode(currentEvent);
+            if (roomNode != null)
+            {
+                // If yes set this room node as the child of the parent room node if it can be added
+                if (currentRoomNodeGraph.roomNodeToDrawLineFrom.AddChildRoomNodeIDtoRoomNode(roomNode.id))
+                {
+                    // Set Parent ID in child room node
+                    roomNode.AddParentRoomNodeIDtoRoomNode(currentRoomNodeGraph.roomNodeToDrawLineFrom.id);
+                }
+            }
+
+            ClearLineDrag();
+        }
+    }
+
+    // Process Mouse Drag Event
+    private void ProcessMouseDragEvent(Event curretEvent)
+    {
+        // Prcess right click drag event - draw line
+        if (curretEvent.button == 1)
+        {
+            ProcessRightMouseDragEvent(curretEvent);
+        }
+    }
+
+    // Process Mouse Drag Event
+    private void ProcessRightMouseDragEvent(Event curretEvent)
+    {
+        if (currentRoomNodeGraph.roomNodeToDrawLineFrom != null)
+        {
+            DragConnectingLine(curretEvent.delta);
+            GUI.changed = true;
+        }
+    }
+
+    // After Mause Drag Event drag line from the node
+    private void DragConnectingLine(Vector2 delta)
+    {
+        currentRoomNodeGraph.linePosition += delta;
     }
 
     // Show the context menu
@@ -165,6 +242,69 @@ public class RoomNodeGraphEditor : EditorWindow
         AssetDatabase.AddObjectToAsset(roomNode, currentRoomNodeGraph);
 
         AssetDatabase.SaveAssets();
+
+        // Refresh graph node dictionary
+        currentRoomNodeGraph.OnValidate();
+    }
+
+    // Clear line drag from a room node
+    private void ClearLineDrag()
+    {
+        currentRoomNodeGraph.roomNodeToDrawLineFrom = null;
+        currentRoomNodeGraph.linePosition = Vector2.zero;
+        GUI.changed = true;
+    }
+
+    // Draw line between room nodes
+    private void DrawRoomConnections()
+    {
+        // Loop throuht all room nodes
+        foreach (RoomNodeSO roomNode in currentRoomNodeGraph.roomNodeList)
+        {
+            if (roomNode.childRoomNodeIDList.Count > 0)
+            {
+                // Loop throuht all child room nodes
+                foreach (string childRoomNodeID in roomNode.childRoomNodeIDList)
+                {
+                    // Get child room node from dictionary
+                    if (currentRoomNodeGraph.roomNodeDictionary.ContainsKey(childRoomNodeID))
+                    {
+                        DrawConnectionLine(roomNode, currentRoomNodeGraph.roomNodeDictionary[childRoomNodeID]);
+
+                        GUI.changed = true;
+                    }
+                }
+            }
+        }
+    }
+
+    // Draw line between parent and child node
+    private void DrawConnectionLine(RoomNodeSO parentRoomNode, RoomNodeSO childRoomNode)
+    {
+        // get line star and end postition
+        Vector2 starPosition = parentRoomNode.rect.center;
+        Vector2 endPosition = childRoomNode.rect.center;
+
+        // calculate midway point of the line
+        Vector2 midPosition = (endPosition + starPosition) / 2f;
+
+        // Vector from the start to the end position line
+        Vector2 direction = endPosition - starPosition;
+
+        // Calcualte normalised perpendicular positions from the mid point
+        Vector2 arrowTailPoint1 = midPosition - new Vector2(-direction.y, direction.x).normalized * connectingLineArrowSize;
+        Vector2 arrowTailPoint2 = midPosition + new Vector2(-direction.y, direction.x).normalized * connectingLineArrowSize;
+
+        // Calculate mid point offset position for arrow head
+        Vector2 arrowHeadPoint = midPosition + direction.normalized * connectingLineArrowSize;
+
+        // Draw Arrow
+        Handles.DrawBezier(arrowHeadPoint, arrowTailPoint1, arrowHeadPoint, arrowTailPoint1, Color.red, null, connectingLineWidth);
+        Handles.DrawBezier(arrowHeadPoint, arrowTailPoint2, arrowHeadPoint, arrowTailPoint2, Color.red, null, connectingLineWidth);
+
+        // draw line
+        Handles.DrawBezier(starPosition, endPosition, starPosition, endPosition, Color.red, null, connectingLineWidth);
+        GUI.changed = true;
     }
 
     // Draw room nodes in the graph window
