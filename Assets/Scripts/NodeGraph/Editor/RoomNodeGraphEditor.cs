@@ -205,6 +205,18 @@ public class RoomNodeGraphEditor : EditorWindow
         }
     }
 
+    // Show the context menu
+    private void ShowContextMenu(Vector2 mousePosition)
+    {
+        GenericMenu menu = new GenericMenu();
+
+        menu.AddItem(new GUIContent("Create Room Node"), false, CreateRoomNode, mousePosition);
+        menu.AddSeparator("");
+        menu.AddItem(new GUIContent("Select ALL Room Nodes"), false, SelectAllRoomNodes);
+
+        menu.ShowAsContext();
+    }
+
     // Process Mouse Drag Event
     private void ProcessMouseDragEvent(Event curretEvent)
     {
@@ -231,15 +243,6 @@ public class RoomNodeGraphEditor : EditorWindow
         currentRoomNodeGraph.linePosition += delta;
     }
 
-    // Show the context menu
-    private void ShowContextMenu(Vector2 mousePosition)
-    {
-        GenericMenu menu = new GenericMenu();
-
-        menu.AddItem(new GUIContent("Create Room Node"), false, CreateRoomNode, mousePosition);
-
-        menu.ShowAsContext();
-    }
 
     // Create a room node at the mouse position
     private void CreateRoomNode(object mousePositionObject)
@@ -288,6 +291,16 @@ public class RoomNodeGraphEditor : EditorWindow
                 GUI.changed = true;
             }
         }
+    }
+
+    // Select all room nodes
+    private void SelectAllRoomNodes()
+    {
+        foreach (RoomNodeSO roomNode in currentRoomNodeGraph.roomNodeList)
+        {
+            roomNode.isSelected = true;
+        }
+        GUI.changed = true;
     }
 
     // Clear line drag from a room node
